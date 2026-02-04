@@ -1,0 +1,40 @@
+/* index.css */
+body, html, #root {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden; /* optional: to hide scrollbars if not needed */
+    box-sizing: border-box;
+  }
+  
+  /* In App.css or a global MUI theme override */
+body {
+  overflow-x: hidden;
+}
+
+/* Define a global font variable */
+:root {
+    --font-primary: 'Excon', sans-serif;
+  }
+  
+  /* Apply Global Font Reset */
+  * {
+    font-family: var(--font-primary) !important;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  /* Apply Font to Body */
+  body {
+    font-family: var(--font-primary) !important;
+    line-height: 1.6;
+  }
+  
+  /* Explicitly Apply to Common Text Elements */
+  h1, h2, h3, h4, h5, h6, p, span, div, a, button, input, textarea {
+    font-family: var(--font-primary) !important;
+  }
+
+
