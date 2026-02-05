@@ -14,12 +14,12 @@ import {
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { useAuth } from '../../context/AuthContext';
 import { useThemeMode } from '../../ToggleTheme/ThemeContext'; // Add this import
 import logo from '../../assets/images/logistics_logo.png';
 import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
+import api from "../../context/Api";
+import { useAuth } from "../../context/AuthContext";
 
 function Login() {
   const theme = useTheme();
@@ -35,36 +35,57 @@ function Login() {
 
   const isDarkMode = mode === 'dark';
 
-  const handleLogin = async () => {
-    setError('');
+const handleLogin = async () => {
+  setError("");
 
-    try {
-      const res = await axios.post(
-        'http://localhost:5000/api/auth/login',
-        { username, password }
-      );
+  if (!username || !password) {
+    setError("Username and password are required");
+    return;
+  }
 
-      if (res.data.success) {
-        const { token, user } = res.data;
+  try {
+    const res = await api.post("/api/auth/login", {
+      username: username.trim(),
+      password,
+    });
 
-        login(user, token);
+    const { success, user, token, message } = res.data;
 
-        if (user.role === 'superadmin') navigate('/superadmin/dashboard');
-        else if (user.role === 'admin') navigate('/admin/dashboard');
-        else if (user.role === 'supervisor') navigate('/supervisor/dashboard');
-        else if (user.role === 'user') navigate('/driver/dashboard');
-        else navigate('/');
-
-      } else {
-        setError(res.data.message || 'Login failed');
-      }
-    } catch (err) {
-      setError(
-        err.response?.data?.message ||
-        'Something went wrong. Please try again.'
-      );
+    if (!success) {
+      setError(message || "Login failed");
+      return;
     }
-  };
+
+    // Save user + token
+    login(user, token);
+
+    // Role-based navigation (MATCH BACKEND ROLES)
+    switch (user.role) {
+      case "superadmin":
+        navigate("/superadmin/dashboard");
+        break;
+      case "admin":
+        navigate("/admin/dashboard");
+        break;
+      case "supervisor":
+        navigate("/supervisor/dashboard");
+        break;
+      case "user":
+        navigate("/driver/dashboard");
+        break;
+      default:
+        navigate("/");
+    }
+  } catch (err) {
+    setError(
+      err.response?.data?.message ||
+        "Server unreachable. Please try again."
+    );
+  }
+};
+
+
+
 
   return (
     <Box

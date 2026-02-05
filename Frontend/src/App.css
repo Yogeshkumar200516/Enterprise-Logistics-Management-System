@@ -1,14 +1,4 @@
-/* index.css */
-body, html, #root {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    width: 100%;
-    overflow: hidden; /* optional: to hide scrollbars if not needed */
-    box-sizing: border-box;
-  }
-  
-  /* In App.css or a global MUI theme override */
+/* In App.css or a global MUI theme override */
 body {
   overflow-x: hidden;
 }

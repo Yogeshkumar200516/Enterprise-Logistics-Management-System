@@ -1,74 +1,76 @@
 // routes/authRoutes.js
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const jwt = require('jsonwebtoken');
-const db = require('../config/config.js');
-require('dotenv').config();
+const jwt = require("jsonwebtoken");
+const db = require("../config/config");
+require("dotenv").config();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'mydefaultsecret';
+const JWT_SECRET = process.env.JWT_SECRET || "mydefaultsecret";
 
-router.post('/login', async (req, res) => {
+router.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
+  // 1. Validate input
   if (!username || !password) {
     return res.status(400).json({
       success: false,
-      message: 'Username and password are required'
+      message: "Username and password are required",
     });
   }
 
   try {
+    // 2. Get user
     const [rows] = await db.query(
-      'SELECT * FROM users WHERE username = ? LIMIT 1',
-      [username]
+      "SELECT * FROM users WHERE username = ? LIMIT 1",
+      [username.trim()]
     );
 
     if (rows.length === 0) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid username or password'
+        message: "Invalid username or password",
       });
     }
 
     const user = rows[0];
 
-    // Check account status
-    if (user.status !== 'ACTIVE') {
+    // 3. Status check
+    if (user.status !== "ACTIVE") {
       return res.status(403).json({
         success: false,
-        message: 'Account is inactive or suspended'
+        message: "Account is inactive or suspended",
       });
     }
 
-    // Plain text password comparison (as requested)
+    // 4. Password check (plain text)
     if (password !== user.password) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid username or password'
+        message: "Invalid username or password",
       });
     }
 
-    // Create JWT
+    // 5. JWT (MATCHES authMiddleware)
     const token = jwt.sign(
       {
         user_id: user.user_id,
-        username: user.username,
         role: user.role,
-        tenant_id: user.tenant_id
+        tenant_id: user.tenant_id || null,
       },
       JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: "7d" }
     );
 
-    // Update last login
+    // 6. Update login time
     await db.query(
-      'UPDATE users SET last_login = NOW() WHERE user_id = ?',
+      "UPDATE users SET last_login = NOW() WHERE user_id = ?",
       [user.user_id]
     );
 
+    // 7. Response
     res.status(200).json({
       success: true,
-      message: 'Login successful',
+      message: "Login successful",
       token,
       user: {
         user_id: user.user_id,
@@ -78,16 +80,13 @@ router.post('/login', async (req, res) => {
         role: user.role,
         tenant_id: user.tenant_id,
         status: user.status,
-        last_login: user.last_login,
-        created_at: user.created_at
-      }
+      },
     });
-
-  } catch (error) {
-    console.error('Login error:', error);
+  } catch (err) {
+    console.error("Login error:", err);
     res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: "Internal server error",
     });
   }
 });

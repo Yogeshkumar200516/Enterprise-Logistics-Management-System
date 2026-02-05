@@ -482,10 +482,10 @@ const secondaryColor = theme.palette.secondary?.main;
                     px: 1.5,
                     margin: '10px',
                     borderRadius: '10px',
-                    backgroundColor: "#FF7622",
+                    backgroundColor: isDark ? secondaryColor : primaryColor,
                     color: "#fff",
                     "&:hover": {
-                      backgroundColor: "#e64a19",
+                      backgroundColor: isDark ? secondaryColor : primaryColor,
                     },
                   }}
                 >
@@ -606,8 +606,8 @@ const secondaryColor = theme.palette.secondary?.main;
                   variant="outlined"
                   startIcon={<LogoutIcon />}
                   sx={{
-                    color: '#FF7622',
-                    borderColor: '#FF7622',
+                    color: secondaryColor,
+                    borderColor: secondaryColor,
                     borderRadius: '30px',
                     textTransform: 'none',
                     display: {xs: 'flex', sm: 'none'},
@@ -617,8 +617,8 @@ const secondaryColor = theme.palette.secondary?.main;
                     transition: 'all 0.3s ease',
                     '&:hover': {
                       backgroundColor: isDark ? '#fff3e0' : primaryColor,
-                      borderColor: '#FF7622',
-                      color: '#FF7622',
+                      borderColor: secondaryColor,
+                      color: secondaryColor,
                     },
                   }}
                 >

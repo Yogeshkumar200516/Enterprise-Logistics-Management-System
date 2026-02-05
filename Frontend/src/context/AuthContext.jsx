@@ -1,53 +1,34 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { createContext, useContext, useEffect, useState } from "react";
 
-const AuthContext = createContext();
+// 1️⃣ Create context
+const AuthContext = createContext(null);
 
+// 2️⃣ Provider
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
 
-  // Load user and token from localStorage safely
   useEffect(() => {
     try {
-      const storedUser = localStorage.getItem('user');
-      const storedToken = localStorage.getItem('token');
-      
+      const storedUser = localStorage.getItem("user");
+      const storedToken = localStorage.getItem("token");
+
       if (storedUser && storedToken) {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-        
-        // Set the authorization token in axios header for API calls
-        axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+        setUser(JSON.parse(storedUser));
       }
-    } catch (error) {
-      console.error("Failed to load user/token from localStorage:", error);
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
+    } catch (err) {
+      localStorage.clear();
     }
   }, []);
 
-  // Login function to update user state and localStorage
   const login = (userData, token) => {
-    try {
-      localStorage.setItem('user', JSON.stringify(userData));
-      localStorage.setItem('token', token);
-      setUser(userData);
-
-      // Set the authorization token for API requests
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    } catch (error) {
-      console.error("Failed to save user/token to localStorage:", error);
-    }
+    localStorage.setItem("user", JSON.stringify(userData));
+    localStorage.setItem("token", token);
+    setUser(userData);
   };
 
-  // Logout function to clear user state and localStorage
   const logout = () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
+    localStorage.clear();
     setUser(null);
-
-    // Remove the authorization token from axios header
-    delete axios.defaults.headers.common['Authorization'];
   };
 
   return (
@@ -57,5 +38,7 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-// Custom hook to use AuthContext
-export const useAuth = () => useContext(AuthContext);
+// 3️⃣ CUSTOM HOOK (THIS WAS MISSING ❌)
+export const useAuth = () => {
+  return useContext(AuthContext);
+};
