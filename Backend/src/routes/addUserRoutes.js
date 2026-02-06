@@ -1,20 +1,25 @@
 const express = require("express");
+const bcrypt = require("bcryptjs");
 const router = express.Router();
 const pool = require("../config/config");
-const bcrypt = require("bcrypt");
 
 /*
-===================================================
-GET – List Users
-===================================================
+---------------------------------------------------
+HELPER: ROLE CHECK
+---------------------------------------------------
+*/
+const isSuperAdmin = (user) => user.role === "superadmin";
+const isAdmin = (user) => user.role === "admin";
+
+/*
+---------------------------------------------------
+GET /api/users
+ROLE:
+- superadmin → all users
+- admin → users from own tenant only
+---------------------------------------------------
 */
 router.get("/", async (req, res) => {
-  if (!req.user) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-
-  const loggedInUser = req.user;
-
   try {
     let query = `
       SELECT 
@@ -25,48 +30,48 @@ router.get("/", async (req, res) => {
         full_name,
         email,
         phone_number,
+        status,
         is_external_driver,
         license_number,
         vehicle_type,
         vehicle_number,
-        status,
         created_at
       FROM users
     `;
 
-    const params = [];
+    let params = [];
 
-    if (loggedInUser.role !== "superadmin") {
+    if (isAdmin(req.user)) {
       query += " WHERE tenant_id = ?";
-      params.push(loggedInUser.tenant_id);
+      params.push(req.user.tenant_id);
+    } else if (!isSuperAdmin(req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
     }
 
-    query += " ORDER BY user_id DESC";
+    const [users] = await pool.query(query, params);
 
-    const [rows] = await pool.execute(query, params);
-
-    res.json({
-      success: true,
-      data: rows,
-    });
+    res.json({ success: true, data: users });
   } catch (error) {
     console.error("Get Users Error:", error);
-    res.status(500).json({ message: "Failed to fetch users" });
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch users",
+    });
   }
 });
 
 /*
-===================================================
-POST – Add User
-===================================================
+---------------------------------------------------
+POST /api/users
+ROLE:
+- superadmin → create any user
+- admin → create users for own tenant only
+---------------------------------------------------
 */
-router.post("/add", async (req, res) => {
-  if (!req.user) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-
-  const loggedInUser = req.user;
-
+router.post("/", async (req, res) => {
   const {
     tenant_id,
     role,
@@ -75,82 +80,49 @@ router.post("/add", async (req, res) => {
     email,
     phone_number,
     password,
+    status,
     is_external_driver,
     license_number,
     vehicle_type,
     vehicle_number,
   } = req.body;
 
+  if (!username || !full_name || !email || !phone_number || !password || !role) {
+    return res.status(400).json({
+      success: false,
+      message: "Required fields missing",
+    });
+  }
+
   try {
-    /* ===============================
-       ROLE & PERMISSION RULES
-    ================================ */
+    let finalTenantId = null;
 
-    // ❌ Supervisors cannot create users
-    if (loggedInUser.role === "supervisor") {
-      return res
-        .status(403)
-        .json({ message: "Supervisors cannot add users" });
-    }
+    // 🔐 ROLE LOGIC
+    if (isSuperAdmin(req.user)) {
+      finalTenantId = role === "superadmin" ? null : tenant_id;
+    } else if (isAdmin(req.user)) {
+      finalTenantId = req.user.tenant_id;
 
-    // ✅ SUPERADMIN LOGIC
-    if (loggedInUser.role === "superadmin") {
-      // Superadmin creating superadmin OR admin
-      if (!["superadmin", "admin"].includes(role)) {
+      if (role === "superadmin") {
         return res.status(403).json({
-          message: "Super Admin can only create Super Admin or Admin users",
+          success: false,
+          message: "Admin cannot create superadmin",
         });
       }
-
-      // Admin MUST have tenant
-      if (role === "admin" && !tenant_id) {
-        return res.status(400).json({ message: "Tenant ID required for Admin" });
-      }
-
-      // Superadmin must NOT have tenant
-      if (role === "superadmin" && tenant_id) {
-        return res.status(400).json({
-          message: "Super Admin must not be assigned to a tenant",
-        });
-      }
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
     }
 
-    // ✅ ADMIN LOGIC
-    if (loggedInUser.role === "admin") {
-      if (!["admin", "supervisor", "user"].includes(role)) {
-        return res
-          .status(403)
-          .json({ message: "Invalid role assignment" });
-      }
-    }
-
-    /* ===============================
-       PASSWORD
-    ================================ */
-    if (!password) {
-      return res.status(400).json({ message: "Password is required" });
-    }
+    // 🚗 DRIVER FIELD CONTROL
+    const isDriver = role === "user";
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    /* ===============================
-       FINAL TENANT DECISION
-    ================================ */
-    let finalTenantId = null;
-
-    if (role === "superadmin") {
-      finalTenantId = null;
-    } else if (loggedInUser.role === "superadmin") {
-      finalTenantId = tenant_id;
-    } else {
-      finalTenantId = loggedInUser.tenant_id;
-    }
-
-    /* ===============================
-       INSERT USER
-    ================================ */
-    const query = `
-      INSERT INTO users (
+    await pool.query(
+      `INSERT INTO users (
         tenant_id,
         role,
         username,
@@ -158,214 +130,169 @@ router.post("/add", async (req, res) => {
         email,
         phone_number,
         password,
+        status,
         is_external_driver,
         license_number,
         vehicle_type,
         vehicle_number,
         created_by
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        finalTenantId,
+        role,
+        username,
+        full_name,
+        email,
+        phone_number,
+        hashedPassword,
+        status || "ACTIVE",
+        isDriver ? is_external_driver || false : false,
+        isDriver ? license_number || null : null,
+        isDriver ? vehicle_type || null : null,
+        isDriver ? vehicle_number || null : null,
+        req.user.user_id,
+      ]
+    );
 
-    await pool.execute(query, [
-      finalTenantId,
-      role,
-      username,
-      full_name,
-      email,
-      phone_number,
-      hashedPassword,
-      is_external_driver || false,
-      license_number || null,
-      vehicle_type || null,
-      vehicle_number || null,
-      loggedInUser.user_id,
-    ]);
-
-    res.status(201).json({ message: "User added successfully" });
+    res.status(201).json({
+      success: true,
+      message: "User created successfully",
+    });
   } catch (error) {
-    console.error("Add User Error:", error);
-    res.status(500).json({ message: "Failed to add user" });
+    console.error("Create User Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to create user",
+    });
   }
 });
 
-
 /*
-===================================================
-PUT – Update User
-===================================================
+---------------------------------------------------
+PUT /api/users/:id
+ROLE:
+- superadmin → update any user
+- admin → update users from own tenant only
+---------------------------------------------------
 */
 router.put("/:id", async (req, res) => {
-  if (!req.user) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-
-  const { id } = req.params;
-  const loggedInUser = req.user;
-
-  const {
-    role,
-    full_name,
-    email,
-    phone_number,
-    is_external_driver,
-    license_number,
-    vehicle_type,
-    vehicle_number,
-    password,
-    // ❌ tenant_id intentionally ignored
-  } = req.body;
+  const userId = req.params.id;
 
   try {
-    /* ===============================
-       FETCH EXISTING USER
-    ================================ */
-    const [existing] = await pool.execute(
+    const [existing] = await pool.query(
       "SELECT tenant_id, role FROM users WHERE user_id = ?",
-      [id]
+      [userId]
     );
 
     if (existing.length === 0) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
     }
 
-    const existingUser = existing[0];
+    const targetUser = existing[0];
 
-    /* ===============================
-       TENANT ACCESS CHECK
-    ================================ */
-    if (
-      loggedInUser.role !== "superadmin" &&
-      existingUser.tenant_id !== loggedInUser.tenant_id
-    ) {
-      return res.status(403).json({ message: "Access denied" });
+    if (isAdmin(req.user) && targetUser.tenant_id !== req.user.tenant_id) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
     }
 
-    /* ===============================
-       ROLE PERMISSIONS
-    ================================ */
-    if (loggedInUser.role === "supervisor") {
-      return res
-        .status(403)
-        .json({ message: "Supervisors cannot update users" });
-    }
-
-    if (loggedInUser.role === "admin") {
-      if (!["admin", "supervisor", "user"].includes(role)) {
-        return res
-          .status(403)
-          .json({ message: "Invalid role assignment" });
-      }
-    }
-
-    if (loggedInUser.role === "superadmin") {
-      if (!["superadmin", "admin"].includes(role)) {
-        return res.status(403).json({
-          message: "Super Admin can only assign Super Admin or Admin roles",
-        });
-      }
-    }
-
-    /* ===============================
-       TENANT NORMALIZATION
-    ================================ */
-    let tenantUpdateClause = "";
-    let params = [
+    const {
       role,
       full_name,
-      email,
       phone_number,
-      is_external_driver || false,
-      license_number || null,
-      vehicle_type || null,
-      vehicle_number || null,
-    ];
+      status,
+      is_external_driver,
+      license_number,
+      vehicle_type,
+      vehicle_number,
+    } = req.body;
 
-    // 🔒 If role is changed to superadmin → force tenant_id = NULL
-    if (role === "superadmin" && existingUser.tenant_id !== null) {
-      tenantUpdateClause = ", tenant_id = NULL";
-    }
+    const isDriver = role === "user";
 
-    /* ===============================
-       PASSWORD (OPTIONAL)
-    ================================ */
-    if (password) {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      tenantUpdateClause += ", password = ?";
-      params.push(hashedPassword);
-    }
-
-    /* ===============================
-       FINAL QUERY
-    ================================ */
-    const query = `
-      UPDATE users SET
+    await pool.query(
+      `UPDATE users SET
         role = ?,
         full_name = ?,
-        email = ?,
         phone_number = ?,
+        status = ?,
         is_external_driver = ?,
         license_number = ?,
         vehicle_type = ?,
         vehicle_number = ?
-        ${tenantUpdateClause}
-      WHERE user_id = ?
-    `;
+      WHERE user_id = ?`,
+      [
+        role,
+        full_name,
+        phone_number,
+        status,
+        isDriver ? is_external_driver || false : false,
+        isDriver ? license_number || null : null,
+        isDriver ? vehicle_type || null : null,
+        isDriver ? vehicle_number || null : null,
+        userId,
+      ]
+    );
 
-    params.push(id);
-
-    await pool.execute(query, params);
-
-    res.json({ message: "User updated successfully" });
+    res.json({
+      success: true,
+      message: "User updated successfully",
+    });
   } catch (error) {
     console.error("Update User Error:", error);
-    res.status(500).json({ message: "Failed to update user" });
+    res.status(500).json({
+      success: false,
+      message: "Failed to update user",
+    });
   }
 });
 
-
 /*
-===================================================
-DELETE – Delete User
-===================================================
+---------------------------------------------------
+DELETE /api/users/:id
+ROLE:
+- superadmin → delete any user
+- admin → delete users from own tenant only
+---------------------------------------------------
 */
 router.delete("/:id", async (req, res) => {
-  if (!req.user) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-
-  const { id } = req.params;
-  const loggedInUser = req.user;
+  const userId = req.params.id;
 
   try {
-    const [existing] = await pool.execute(
+    const [existing] = await pool.query(
       "SELECT tenant_id FROM users WHERE user_id = ?",
-      [id]
+      [userId]
     );
 
     if (existing.length === 0) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    if (
-      loggedInUser.role !== "superadmin" &&
-      existing[0].tenant_id !== loggedInUser.tenant_id
-    ) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-
-    if (loggedInUser.role === "supervisor") {
-      return res.status(403).json({
-        message: "Supervisors cannot delete users",
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
       });
     }
 
-    await pool.execute("DELETE FROM users WHERE user_id = ?", [id]);
+    if (isAdmin(req.user) && existing[0].tenant_id !== req.user.tenant_id) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
 
-    res.json({ message: "User deleted successfully" });
+    await pool.query("DELETE FROM users WHERE user_id = ?", [userId]);
+
+    res.json({
+      success: true,
+      message: "User deleted successfully",
+    });
   } catch (error) {
     console.error("Delete User Error:", error);
-    res.status(500).json({ message: "Failed to delete user" });
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete user",
+    });
   }
 });
 

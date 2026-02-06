@@ -7,89 +7,212 @@ import {
   Button,
   TextField,
   MenuItem,
+  Grid,
 } from "@mui/material";
-import axios from "axios";
 import api from "../../../context/Api";
 
 const AddCompanyModal = ({ open, onClose, refresh, editData }) => {
-  const [companyName, setCompanyName] = useState("");
-  const [companyCode, setCompanyCode] = useState("");
-  const [status, setStatus] = useState("ACTIVE");
+  const [form, setForm] = useState({
+    company_name: "",
+    company_code: "",
+    phone_no: "",
+    email: "",
+    address: "",
+    state: "",
+    pincode: "",
+    gst_no: "",
+    pan_no: "",
+    status: "ACTIVE",
+  });
 
   useEffect(() => {
     if (editData) {
-      setCompanyName(editData.company_name);
-      setCompanyCode(editData.company_code);
-      setStatus(editData.status);
+      setForm({
+        company_name: editData.company_name || "",
+        company_code: editData.company_code || "",
+        phone_no: editData.phone_no || "",
+        email: editData.email || "",
+        address: editData.address || "",
+        state: editData.state || "",
+        pincode: editData.pincode || "",
+        gst_no: editData.gst_no || "",
+        pan_no: editData.pan_no || "",
+        status: editData.status || "ACTIVE",
+      });
     } else {
-      setCompanyName("");
-      setCompanyCode("");
-      setStatus("ACTIVE");
+      setForm({
+        company_name: "",
+        company_code: "",
+        phone_no: "",
+        email: "",
+        address: "",
+        state: "",
+        pincode: "",
+        gst_no: "",
+        pan_no: "",
+        status: "ACTIVE",
+      });
     }
   }, [editData]);
 
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
   const handleSubmit = async () => {
+    if (!form.company_name || !form.company_code) {
+      alert("Company Name and Company Code are required");
+      return;
+    }
+
     try {
       if (editData) {
-        await api.put(
-          `/api/companies/${editData.tenant_id}`,
-          { company_name: companyName, company_code: companyCode, status }
-        );
+        await api.put(`/api/companies/${editData.tenant_id}`, form);
       } else {
-        await api.post("/api/companies/add", {
-          company_name: companyName,
-          company_code: companyCode,
-          status,
-        });
+        await api.post("/api/companies/add", form);
       }
 
       refresh();
       onClose();
-    } catch (err) {
-      alert("Operation failed");
+    } catch (error) {
+      console.error("Save Company Error:", error);
+      alert(error.response?.data?.message || "Operation failed");
     }
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+      <DialogTitle sx={{ fontWeight: "bold" }}>
         {editData ? "Edit Company" : "Add Company"}
       </DialogTitle>
 
-      <DialogContent>
-        <TextField
-          fullWidth
-          label="Company Name"
-          margin="normal"
-          value={companyName}
-          onChange={(e) => setCompanyName(e.target.value)}
-        />
+      <DialogContent dividers>
+        <Grid container spacing={2}>
+          {/* Basic Info */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Company Name"
+              name="company_name"
+              value={form.company_name}
+              onChange={handleChange}
+              fullWidth
+              required
+            />
+          </Grid>
 
-        <TextField
-          fullWidth
-          label="Company Code"
-          margin="normal"
-          value={companyCode}
-          onChange={(e) => setCompanyCode(e.target.value)}
-        />
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Company Code"
+              name="company_code"
+              value={form.company_code}
+              onChange={handleChange}
+              fullWidth
+              required
+            />
+          </Grid>
 
-        <TextField
-          fullWidth
-          select
-          label="Status"
-          margin="normal"
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-        >
-          <MenuItem value="ACTIVE">ACTIVE</MenuItem>
-          <MenuItem value="INACTIVE">INACTIVE</MenuItem>
-        </TextField>
+          {/* Contact Info */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Phone Number"
+              name="phone_no"
+              value={form.phone_no}
+              onChange={handleChange}
+              fullWidth
+            />
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Email"
+              name="email"
+              value={form.email}
+              onChange={handleChange}
+              fullWidth
+              type="email"
+            />
+          </Grid>
+
+          {/* Address */}
+          <Grid item xs={12}>
+            <TextField
+              label="Address"
+              name="address"
+              value={form.address}
+              onChange={handleChange}
+              fullWidth
+              multiline
+              minRows={2}
+            />
+          </Grid>
+
+          <Grid item xs={12} sm={4}>
+            <TextField
+              label="State"
+              name="state"
+              value={form.state}
+              onChange={handleChange}
+              fullWidth
+            />
+          </Grid>
+
+          <Grid item xs={12} sm={4}>
+            <TextField
+              label="Pincode"
+              name="pincode"
+              value={form.pincode}
+              onChange={handleChange}
+              fullWidth
+            />
+          </Grid>
+
+          <Grid item xs={12} sm={4}>
+            <TextField
+              select
+              label="Status"
+              name="status"
+              value={form.status}
+              onChange={handleChange}
+              fullWidth
+            >
+              <MenuItem value="ACTIVE">ACTIVE</MenuItem>
+              <MenuItem value="INACTIVE">INACTIVE</MenuItem>
+            </TextField>
+          </Grid>
+
+          {/* Tax Info */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="GST Number"
+              name="gst_no"
+              value={form.gst_no}
+              onChange={handleChange}
+              fullWidth
+            />
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="PAN Number"
+              name="pan_no"
+              value={form.pan_no}
+              onChange={handleChange}
+              fullWidth
+            />
+          </Grid>
+        </Grid>
       </DialogContent>
 
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSubmit}>
-          {editData ? "Update" : "Add"}
+      <DialogActions sx={{ px: 3, py: 2 }}>
+        <Button onClick={onClose} sx={{ textTransform: "none" }}>
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          onClick={handleSubmit}
+          sx={{ fontWeight: "bold", textTransform: "none" }}
+        >
+          {editData ? "Update Company" : "Add Company"}
         </Button>
       </DialogActions>
     </Dialog>
