@@ -14,11 +14,17 @@
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^7.0.2",
     "@mui/material": "^7.0.2",
+    "@mui/x-date-pickers": "^8.27.0",
     "axios": "^1.8.4",
+    "dayjs": "^1.11.19",
+    "framer-motion": "^12.34.2",
     "jwt-decode": "^4.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router-dom": "^7.5.0"
+    "react-hot-toast": "^2.6.0",
+    "react-router-dom": "^7.5.0",
+    "read-excel-file": "^6.0.3",
+    "recharts": "^3.7.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",

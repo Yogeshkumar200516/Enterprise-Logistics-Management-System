@@ -48,6 +48,7 @@ const handleLogin = async () => {
       username: username.trim(),
       password,
     });
+console.log("Stored token:", localStorage.getItem("token"));
 
     const { success, user, token, message } = res.data;
 

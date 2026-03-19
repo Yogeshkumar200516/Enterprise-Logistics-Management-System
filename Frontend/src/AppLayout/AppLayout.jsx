@@ -24,6 +24,7 @@ import ScrapLog from '../pages/Supervisor/ScrapLog/ScrapLog';
 import SupervisorHistory from '../pages/Supervisor/History/History';
 import AddAdminUsers from '../pages/SuperAdmin/AddUsers/AddUsers';
 import AddCompany from '../pages/SuperAdmin/AddCompany/AddCompany';
+import AddOrders from '../pages/Admin/AddOrders/AddOrders';
 
 function AppLayout() {
   const { user } = useAuth();
@@ -96,6 +97,7 @@ function AppLayout() {
             <Route path="/add-resources" element={<AddResources />} />
             <Route path="/add-users" element={<AddUsers />} />
             <Route path="/admin-history" element={<History />} />
+            <Route path="/add-orders" element={<AddOrders />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         );
@@ -104,9 +106,9 @@ function AppLayout() {
         return (
           <Routes>
             {/* <Route path="/" element={<RedirectToDashboard />} /> */}
-            <Route path="/" element={<UserDashboard />} />
-            <Route path="/delivery-items-user" element={<DeliveryItems />} />
-            <Route path="/delivery-status-user" element={<DeliveryStatus />} />
+            {/* <Route path="/" element={<UserDashboard />} /> */}
+            {/* <Route path="/delivery-items-user" element={<DeliveryItems />} /> */}
+            <Route path="/" element={<DeliveryStatus />} />
             <Route path="/scrap-user" element={<ScrapStatus />} />
             <Route path="/history-user" element={<UserHistory />} />
             <Route path="*" element={<Navigate to="/" />} />
@@ -119,9 +121,10 @@ function AppLayout() {
             {/* <Route path="/" element={<RedirectToDashboard />} /> */}
             <Route path="/" element={<SupervisorDashboard />} />
             <Route path="/delivery-logger" element={<DeliveryLogger />} />
-            <Route path="/delivery-status" element={<SupervisorDeliveryStatus />} />
+            {/* <Route path="/delivery-status" element={<SupervisorDeliveryStatus />} /> */}
             <Route path="/temprory-resources" element={<TemproryResources />} />
             <Route path="/scrap-log" element={<ScrapLog />} />
+            <Route path="/add-orders" element={<AddOrders />} />
             <Route path="/supervisor-history" element={<SupervisorHistory />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
